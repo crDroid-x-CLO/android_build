@@ -202,7 +202,7 @@ PLATFORM_SYSTEMSDK_VERSIONS := $(sort $(PLATFORM_SYSTEMSDK_VERSIONS))
 
 ifndef PLATFORM_SECURITY_PATCH_TIMESTAMP
   # Used to indicate the matching timestamp for the security patch string in PLATFORM_SECURITY_PATCH.
-  PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell date -d 'TZ="GMT" $(PLATFORM_SECURITY_PATCH)' +%s)
+  PLATFORM_SECURITY_PATCH_TIMESTAMP := $(shell TZ="GMT" date -d '$(PLATFORM_SECURITY_PATCH)' +%s)
 endif
 .KATI_READONLY := PLATFORM_SECURITY_PATCH_TIMESTAMP
 
@@ -234,7 +234,7 @@ ifndef BUILD_DATETIME
   BUILD_DATETIME := $(shell date +%s)
 endif
 
-DATE := date -d @$(BUILD_DATETIME)
+DATE := date -ud @$(BUILD_DATETIME)
 .KATI_READONLY := DATE
 
 # Everything should be using BUILD_DATETIME_FROM_FILE instead.

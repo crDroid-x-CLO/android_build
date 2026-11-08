@@ -387,7 +387,7 @@ class BuildInfo(object):
 
   _RO_PRODUCT_RESOLVE_PROPS = ["ro.product.brand", "ro.product.device",
                                "ro.product.manufacturer", "ro.product.model",
-                               "ro.product.name"]
+                               "ro.product.name", "ro.crdroid.build.version"]
   _RO_PRODUCT_PROPS_DEFAULT_SOURCE_ORDER_CURRENT = [
       "product", "odm", "vendor", "system_ext", "system"]
   _RO_PRODUCT_PROPS_DEFAULT_SOURCE_ORDER_ANDROID_10 = [
@@ -1117,8 +1117,9 @@ class PartitionBuildProps(object):
     Return empty string if not found.
     """
     data = ''
-    for prop_file in ['{}/etc/build.prop'.format(name.upper()),
-                      '{}/build.prop'.format(name.upper())]:
+    partition_map = PartitionMapFromTargetFiles(input_file)
+    for prop_file in ['{}/etc/build.prop'.format(partition_map[name]),
+                      '{}/build.prop'.format(partition_map[name])]:
       try:
         data = ReadFromInputFile(input_file, prop_file)
         break
@@ -3700,6 +3701,12 @@ class BlockDifference(object):
             '  abort("E{code}: Failed to update {partition} image.");'.format(
                 device=self.device, partition=self.partition,
                 new_data_name=new_data_name, code=code))
+    script.AppendExtra(script.WordWrap(call))
+
+    call = ('delete_recursive("/data/system/package_cache");')
+    script.AppendExtra(script.WordWrap(call))
+
+    call = ('delete_recursive("/data/resource-cache");')
     script.AppendExtra(script.WordWrap(call))
 
   def _HashBlocks(self, source, ranges):  # pylint: disable=no-self-use

@@ -34,7 +34,12 @@ PRODUCT_PACKAGES += \
 
 ifeq ($(LINEAGE_BUILD),)
 PRODUCT_PACKAGES += \
-    LatinIME
+    Browser2 \
+    Calendar \
+    Camera2 \
+    Gallery2 \
+    LatinIME \
+    Music
 endif
 
 PRODUCT_PACKAGES_DEBUG += \

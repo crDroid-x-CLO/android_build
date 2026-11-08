@@ -288,6 +288,10 @@ endif
 endif
 endif
 
+ifeq ($(BOARD_USES_PVMFWIMAGE),true)
+INSTALLED_PVMFWIMAGE_TARGET := $(PRODUCT_OUT)/pvmfw.img
+endif
+
 # Do this early because sysprop.mk depends on BUILT_KERNEL_VERSION_FILE_FOR_UFFD_GC.
 ifeq (default,$(ENABLE_UFFD_GC))
 BUILT_KERNEL_VERSION_FILE_FOR_UFFD_GC := $(OUT_DIR)/soong/dexpreopt/kernel_version_for_uffd_gc.txt
@@ -2871,6 +2875,7 @@ $(recovery_ramdisk): $(recovery_uncompressed_ramdisk) $(COMPRESSION_COMMAND_DEPS
 # $(1): output file
 # $(2): optional kernel file
 define build-recoveryimage-target
+  $(hide) ./vendor/lineage/build/tools/changelog.sh $(TARGET_DEVICE)
   $(MKBOOTIMG) $(if $(strip $(2)),--kernel $(strip $(2))) $(INTERNAL_RECOVERYIMAGE_ARGS) \
                $(INTERNAL_MKBOOTIMG_VERSION_ARGS) \
                $(BOARD_RECOVERY_MKBOOTIMG_ARGS) --output $(1)
@@ -3296,7 +3301,7 @@ endif
 # recovery_media.img bundle (installer kernel image)
 INSTALLED_RECOVERY_MEDIA_TARGET := $(PRODUCT_OUT)/recovery_media.img
 $(INSTALLED_RECOVERY_MEDIA_TARGET): PRIVATE_STAGING_DIR := $(call intermediates-dir-for,PACKAGING,recovery_media_bundle)
-$(INSTALLED_RECOVERY_MEDIA_TARGET): $(MKEROFS) $(AVBTOOL) $(INSTALLED_BOOTIMAGE_TARGET) $(INSTALLED_INIT_BOOT_IMAGE_TARGET) $(INSTALLED_PVMFWIMAGE_TARGET) $(INSTALLED_VENDOR_BOOT_RECOVERY_MEDIA_TARGET)
+$(INSTALLED_RECOVERY_MEDIA_TARGET): $(MKEROFS) $(AVBTOOL) $(INSTALLED_BOOTIMAGE_TARGET) $(INSTALLED_INIT_BOOT_IMAGE_TARGET) $(INSTALLED_PVMFWIMAGE_TARGET) $(INSTALLED_VENDOR_BOOT_RECOVERY_MEDIA_TARGET) $(INSTALLED_DTBOIMAGE_TARGET)
 	@echo "Target Recovery Media EROFS Image: $@"
 	$(hide) rm -rf $(PRIVATE_STAGING_DIR) && mkdir -p $(PRIVATE_STAGING_DIR)
 	$(hide) cp $(INSTALLED_BOOTIMAGE_TARGET) $(PRIVATE_STAGING_DIR)/boot.img
@@ -3309,6 +3314,12 @@ $(INSTALLED_RECOVERY_MEDIA_TARGET): $(MKEROFS) $(AVBTOOL) $(INSTALLED_BOOTIMAGE_
 	    truncate -s 1M $(PRIVATE_STAGING_DIR)/pvmfw.img; \
 	    PVMFW_ARG=""; \
 	fi; \
+	if [ -f "$(INSTALLED_DTBOIMAGE_TARGET)" ]; then \
+	    cp $(INSTALLED_DTBOIMAGE_TARGET) $(PRIVATE_STAGING_DIR)/dtbo.img; \
+	    DTBO_ARG="--include_descriptors_from_image $(INSTALLED_DTBOIMAGE_TARGET)"; \
+	else \
+	    DTBO_ARG=""; \
+	fi; \
 	$(AVBTOOL) make_vbmeta_image \
 	    --rollback_index $(if $(BOARD_AVB_ROLLBACK_INDEX),$(BOARD_AVB_ROLLBACK_INDEX),0) \
 	    --output $(PRIVATE_STAGING_DIR)/vbmeta \
@@ -3317,6 +3328,7 @@ $(INSTALLED_RECOVERY_MEDIA_TARGET): $(MKEROFS) $(AVBTOOL) $(INSTALLED_BOOTIMAGE_
 	    --include_descriptors_from_image $(INSTALLED_BOOTIMAGE_TARGET) \
 	    --include_descriptors_from_image $(INSTALLED_INIT_BOOT_IMAGE_TARGET) \
 	    --include_descriptors_from_image $(INSTALLED_VENDOR_BOOT_RECOVERY_MEDIA_TARGET) \
+	    $$DTBO_ARG \
 	    $$PVMFW_ARG
 	$(hide) $(MKEROFS) -z lz4hc,9 $@ $(PRIVATE_STAGING_DIR)
 	$(hide) rm -rf $(PRIVATE_STAGING_DIR)
@@ -3873,6 +3885,7 @@ BUILT_SYSTEMIMAGE :=$= $(systemimage_intermediates)/system.img
 
 # $(1): output file
 define build-systemimage-target
+  $(hide) ./vendor/lineage/build/tools/changelog.sh $(TARGET_DEVICE)
   @echo "Target system fs image: $(1)"
   @mkdir -p $(dir $(1)) $(systemimage_intermediates) && rm -rf $(systemimage_intermediates)/system_image_info.txt
   $(call generate-image-prop-dictionary, $(systemimage_intermediates)/system_image_info.txt,system, \
@@ -4767,7 +4780,6 @@ ifeq ($(BOARD_USES_PVMFWIMAGE),true)
 .PHONY: pvmfwimage
 pvmfwimage: $(INSTALLED_PVMFWIMAGE_TARGET)
 
-INSTALLED_PVMFWIMAGE_TARGET := $(PRODUCT_OUT)/pvmfw.img
 INSTALLED_PVMFW_EMBEDDED_AVBKEY_TARGET := $(PRODUCT_OUT)/pvmfw_embedded.avbpubkey
 INSTALLED_PVMFW_BINARY_TARGET := $(call module-target-built-files,pvmfw_bin)
 INTERNAL_PVMFWIMAGE_FILES := $(call module-target-built-files,pvmfw_img)
@@ -7396,6 +7408,9 @@ INTERNAL_OTA_METADATA := $(PRODUCT_OUT)/ota_metadata
 
 $(call declare-0p-target,$(INTERNAL_OTA_METADATA))
 
+ifeq ($(TARGET_EXCLUDE_BACKUPTOOL),true)
+    $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
+else
 ifeq ($(TARGET_BUILD_VARIANT),user)
     $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
 else
@@ -7403,6 +7418,7 @@ ifneq ($(LINEAGE_BUILD),)
     $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := true
 else
     $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
+endif
 endif
 endif
 
@@ -8174,9 +8190,7 @@ task_makefiles := \
 	$(sort $(wildcard product/*/build/tasks/*.mk)) \
 	$(sort $(wildcard vendor/*/*/build/tasks/*.mk)) \
 	$(sort $(wildcard device/*/*/build/tasks/*.mk)) \
-	$(sort $(wildcard product/*/*/build/tasks/*.mk)) \
-	$(sort $(wildcard platform_testing/build/tasks/*.mk)) \
-	$(sort $(wildcard test/vts/tools/build/tasks/*.mk))
+	$(sort $(wildcard product/*/*/build/tasks/*.mk))
 
 include_makefiles_total := $(words int $(task_makefiles))
 include_makefiles_inc:=
